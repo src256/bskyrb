@@ -70,6 +70,37 @@ module Bskyrb
       create_record(input)
     end
 
+    # def create_post_ex(text, url, title, description, image_url)
+    #   input = {
+    #     "collection" => "app.bsky.feed.post",
+    #     "$type" => "app.bsky.feed.post",
+    #     "repo" => session.did,
+    #     "record" => {
+    #       "$type" => "app.bsky.feed.post",
+    #       "createdAt" => DateTime.now.iso8601(3),
+    #       "text" => text,
+    #       "facets" => create_facets(text),
+    #
+    #       "embed" => {
+    #         "$type" => "app.bsky.embed.external",
+    #         "external"=> {
+    #           "url" => url,
+    #           "title" => title,
+    #           "description" => description,
+    #           "thumb" => {
+    #             "$type" => "blob",
+    #             "ref" => {
+    #               "$link" =>
+    #             },
+    #           }
+    #         }
+    #
+    #       }
+    #     },
+    #   }
+    #   end
+    #   create_record(input)
+    # end
     def create_post(text)
       create_post_or_reply(text)
     end

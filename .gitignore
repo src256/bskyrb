@@ -13,3 +13,9 @@ node_modules/
 lib/bskytest.rb
 .byebug_history
 *.gem
+test.rb
+test.sh
+/vendor/bundle
+/.idea
+build.sh
+

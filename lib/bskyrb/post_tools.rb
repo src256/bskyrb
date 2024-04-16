@@ -21,7 +21,7 @@ module Bskyrb
 
       # Regex patterns
       mention_pattern = /(^|\s|\()(@)([a-zA-Z0-9.-]+)(\b)/
-      link_pattern = URI.regexp
+      link_pattern = /(https?):\/\/(\S+)/u
 
       # Find mentions
       text.enum_for(:scan, mention_pattern).each do |m|
@@ -47,10 +47,12 @@ module Bskyrb
 
       # Find links
       text.enum_for(:scan, link_pattern).each do |m|
-        index_start = Regexp.last_match.offset(0).first
-        index_end = Regexp.last_match.offset(0).last
+        # Ruby 3.2: bytesizeoffset
+        char_index_start, char_index_end = Regexp.last_match.offset(0)
+        index_start = text.slice(0, char_index_start).bytesize
+        index_end = text.slice(0, char_index_end).bytesize
         m.compact!
-        path = "#{m[1]}#{m[2..-1].join("")}".strip
+        path = "#{m[1]}#{m[2..].join("")}".strip
         facets.push(
           "$type" => "app.bsky.richtext.facet",
           "index" => {
@@ -59,11 +61,11 @@ module Bskyrb
           },
           "features" => [
             {
-              "uri" => URI.parse("#{m[0]}://#{path}/").normalize.to_s, # this is the matched link
+              "uri" => URI.parse("#{m[0]}://#{path}").normalize.to_s, # this is the matched link
               "$type" => "app.bsky.richtext.facet#link",
             },
           ],
-        )
+          )
       end
 
       facets.empty? ? nil : facets
