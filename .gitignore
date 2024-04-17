@@ -15,6 +15,7 @@ lib/bskytest.rb
 *.gem
 test.rb
 test.sh
+test.jpg
 /vendor/bundle
 /.idea
 build.sh

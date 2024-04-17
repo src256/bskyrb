@@ -1,12 +1,29 @@
 # typed: true
 
 require "bskyrb/post_tools"
+require "nokogiri"
+require "open-uri"
 
 module Bskyrb
+
+  # disable the warning about nil https://github.com/jnunemaker/httparty/issues/568
+  HTTParty::Response.class_eval do
+    def warn_about_nil_deprecation
+    end
+  end
+
   class Client
     include ATProto::RequestUtils
     include PostTools
     attr_reader :session
+
+    def self.load_card_info(url)
+      doc = Nokogiri::HTML(URI.open(url))
+      title = doc.at_css('meta[property="og:title"]/@content').to_s
+      description = doc.at_css('meta[property="og:description"]/@content').to_s
+      image_url = doc.at_css('meta[property="og:image"]/@content').to_s
+      return title, description, image_url
+    end
 
     def initialize(session)
       @session = session
@@ -43,6 +60,16 @@ module Bskyrb
       )
     end
 
+    def upload_blob_url(blob_url, content_type)
+      # images from url
+      image_bytes = URI.open(blob_url, 'rb').read
+      HTTParty.post(
+        upload_blob_uri(session.pds),
+        body: image_bytes,
+        headers: default_authenticated_headers(session).merge("Content-Type" => content_type),
+        )
+    end
+
     def create_post_or_reply(text, reply_to = nil)
       input = {
         "collection" => "app.bsky.feed.post",
@@ -70,37 +97,76 @@ module Bskyrb
       create_record(input)
     end
 
-    # def create_post_ex(text, url, title, description, image_url)
-    #   input = {
-    #     "collection" => "app.bsky.feed.post",
-    #     "$type" => "app.bsky.feed.post",
-    #     "repo" => session.did,
-    #     "record" => {
-    #       "$type" => "app.bsky.feed.post",
-    #       "createdAt" => DateTime.now.iso8601(3),
-    #       "text" => text,
-    #       "facets" => create_facets(text),
-    #
-    #       "embed" => {
-    #         "$type" => "app.bsky.embed.external",
-    #         "external"=> {
-    #           "url" => url,
-    #           "title" => title,
-    #           "description" => description,
-    #           "thumb" => {
-    #             "$type" => "blob",
-    #             "ref" => {
-    #               "$link" =>
-    #             },
-    #           }
-    #         }
-    #
-    #       }
-    #     },
-    #   }
-    #   end
-    #   create_record(input)
-    # end
+    def fetch_card_info(url)
+      card = {
+        "uri" => url,
+        "title" => "",
+        "description" => "",
+      }
+
+    end
+
+    def create_post_with_card(text, url)
+      title, description, image_url = self.class.load_card_info(url)
+
+      card = {}
+      if image_url.empty?
+        return create_post_with_simplecard(text, url, title, description)
+      else
+        card["uri"] = url
+        card["title"] = title
+        card["description"] = description
+        res = upload_blob_url(image_url, "image/jpeg")
+        card["thumb"] = res["blob"]
+      end
+
+      input = {
+        "collection" => "app.bsky.feed.post",
+        "$type" => "app.bsky.feed.post",
+        "repo" => session.did,
+        "record" => {
+          "$type" => "app.bsky.feed.post",
+          "createdAt" => DateTime.now.iso8601(3),
+          "text" => text,
+          "facets" => create_facets(text),
+          "embed" => {
+            "$type" => "app.bsky.embed.external",
+            "external"=> card,
+          }
+        }
+      }
+      create_record(input)
+    end
+
+    def create_post_with_simplecard(text, url, title, description)
+      input = {
+        "collection" => "app.bsky.feed.post",
+        "$type" => "app.bsky.feed.post",
+        "repo" => session.did,
+        "record" => {
+          "$type" => "app.bsky.feed.post",
+          "createdAt" => DateTime.now.iso8601(3),
+          "text" => text,
+          "facets" => create_facets(text),
+          "embed" => {
+            "$type" => "app.bsky.embed.external",
+            "external"=> {
+              "uri" => url,
+              "title" => title,
+              "description" => description,
+              #              "thumb" => {
+              #  "$type" => "blob",
+              #  "ref" => {
+              #    "$link" =>
+              #  },
+              #}
+            }
+          }
+        }
+      }
+      create_record(input)
+    end
+
     def create_post(text)
       create_post_or_reply(text)
     end
